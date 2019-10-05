@@ -1,0 +1,855 @@
+library(readr)
+
+library(tidyverse)
+
+library(gains)
+
+library(leaps)
+
+library(caret)
+
+library(dplyr)
+
+library(corrplot)
+
+library(reshape2)
+
+library(ggplot2)
+
+library(fpp2)
+
+library(ggrepel)
+
+library(gmodels)
+
+library(class)
+
+library(xlsimple)
+
+library(arules)
+
+library(recommenderlab)
+
+
+
+### Read the HR Dataset
+
+hr.df <- read.csv("HR.csv", header = TRUE)
+
+
+
+### Dataset Details
+
+dim(hr.df)
+
+
+
+### Describe DataSet
+
+summary(hr.df)
+
+
+
+### Promotion on basis of time spend in a company 
+
+timespend_prom <-xtabs(~promotion_last_5years+time_spend_company,data=hr.df)
+
+timespend_prom
+
+
+
+### Department wise salary
+
+dept_sal <-xtabs(~Department+salary,data=hr.df)
+
+dept_sal
+
+
+
+### Promotion in last 5 years vs salary
+
+Prom_sal <-xtabs(~promotion_last_5years+salary,data=hr.df)
+
+Prom_sal
+
+
+
+#Analysis of Salary of Employee on the basis of their satisfaction level
+
+boxplot(Emp_Satisfaction ~salary,data=hr.df, horizontal=TRUE,
+
+           ylab="Salary Level", xlab="Satisfaction level", las=1,
+
+           main="Analysis of Salary of Employee on the basis of their satisfaction level",
+
+           col=c("azure2","gold","darksalmon")
+
+           )
+
+
+
+#Box Plot describing relationship between Left_company and Emp_Satisfaction 
+
+boxplot(Emp_Satisfaction ~left_Company, data=hr.df, horizontal=TRUE,
+
+           ylab="Left", xlab="Satisfaction level", las=1,
+
+           main="Analysis of of Employee Left on the basis of their satisfaction level",
+
+           col=c("thistle1","lightblue1")
+
+           )
+
+
+
+#Barplot to ascertain the salaries of employees by their department using GGPLOT
+
+ggplot(aes(x = Department),data = hr.df ) +
+
+  geom_bar(aes(fill = salary))  +
+
+  xlab('Department') + 
+
+  ylab('Counts') +
+
+  coord_flip()
+
+
+
+#Barplot of employees leaving/not-leaving the company vs time spend using GGPLOT
+
+ggplot(aes(x = factor(hr.df$time_spend_company)),data = hr.df) + 
+
+  geom_bar(fill = 'lightcyan2',color='navy') + 
+
+  xlab("Time spend at company in years") + 
+
+  ylab("Frequency")+
+
+  labs(title = "Barplot of employee leaving the Company vs time spend")  +
+
+  facet_wrap(~left_Company)
+
+
+
+#Table showing department wise promotion 
+
+hr.df$promotion_last_5years<-factor(hr.df$promotion_last_5years,labels=c('False',"True"))
+
+#Sreading out the data
+
+promotiondf<-hr.df %>% group_by(Department, promotion_last_5years) %>%
+
+  summarise(Count = n())
+
+promotiondf<-promotiondf %>% spread(promotion_last_5years,Count)
+
+#Changing column names
+
+names(promotiondf)<-c("Department","Got No promotion","Promotion")
+
+promotiondf
+
+
+
+#Correlation matrix showing relationship between the below variables
+
+HR_correlation1 <- hr.df %>% dplyr::select(number_project,average_montly_hours,time_spend_company,left_Company,promotion_last_5years,Emp_Satisfaction)
+
+M <- cor(HR_correlation1)
+
+corrplot(M, method="circle")
+
+
+
+#Table showing department wise Employee_Satisfaction 
+
+ggplot(aes(x = Emp_Satisfaction),data = hr.df) + 
+
+  geom_bar(fill = 'lightcyan2',color='navy') +
+
+  xlab("Employee satisfaction at company splitted by Department") + 
+
+  facet_wrap(~Department)
+
+
+
+#----------------------------------------Correlation matrix---------------------------------------------------------
+
+
+
+hr.df <- read.csv('HR.csv', header = TRUE)
+
+# Convert Category values to Factors
+
+hr.df$salary <- factor(hr.df$salary, levels = c("high", "low", "medium"), 
+
+                       labels = c(1, 3, 2))
+
+hr.df$Gender <- factor(hr.df$Gender, levels = c("F", "M"), 
+
+                       labels = c(0, 1))
+
+hr.df$Role <- factor(hr.df$Role, levels = c("Director","Level 1","Level 2-4","Manager","Senior Director","Senior Manager","VP"),
+
+                     labels = c(3,7,6,5,2,4,1))
+
+
+
+#Convert Factors into Numeric
+
+hr.df$salary = as.numeric(paste(hr.df$salary))
+
+hr.df$Gender = as.numeric(paste(hr.df$Gender))
+
+hr.df$Role = as.numeric(paste(hr.df$Role))
+
+
+
+hrform.df <- hr.df[,-c(1,2,3,4,11)]
+
+heatmap.2(cor(hrform.df), Rowv = FALSE, Colv = FALSE, dendrogram = "none", 
+
+          cellnote = round(cor(hrform.df),2), notecol = "black", key = FALSE, trace = 'none', margins = c(10,10))
+
+
+
+
+
+#----------------------------------------Why good employees leave--------------------------------------------------- 
+
+#people that left
+
+leavers = subset(hr.df,hr.df[,19] == 1)
+
+  
+
+#filter out people with a good last evaluation. Taking rating 7 as the threshold
+
+leaving_performers <- subset(leavers,leavers[,15] > 7)
+
+
+
+#Analyzing reasons for such employees to have left the company
+
+
+
+#Was number of projects, they were assigned to the reason?
+
+table(No_of_projects = leaving_performers$number_project, Good_Emp_leavers =  leaving_performers$left_Company)
+
+
+
+#or was it the average monthly hours they worked, the reason?
+
+ggplot(aes(x = average_montly_hours),data = leaving_performers) + 
+
+  geom_bar() +
+
+  xlab("Time Spend at Company splitted by Department") + 
+
+  facet_wrap(~Department)
+
+
+
+#or may be it was Salary
+
+ggplot(aes(x = Department),data = leaving_performers ) +
+
+  geom_bar(aes(fill = salary))  +
+
+  xlab('Department') + 
+
+  ylab('EmpCounts') +
+
+  coord_flip()
+
+
+
+Sal_leavers <- xtabs(~Department+salary, data = leaving_performers)
+
+Sal_leavers
+
+
+
+#----------------------------------------------------run PCA-------------------------------------------------------------------
+
+
+
+### PCA using Normalized variables
+
+pcs.cor <- prcomp(na.omit(HR1.df, scale. = T))
+
+summary(pcs.cor)
+
+pcs.cor$rot
+
+
+
+#---------------------------------------A) Will the employee leave the company(Running GLM and LDA)-------------------------------------
+
+
+
+# Convert Category values to Factors
+
+hr.df$salary <- factor(hr_old.df$salary, levels = c("high", "low", "medium"), 
+
+                       labels = c(1, 3, 2))
+
+
+
+hr.df$Gender <- factor(hr_old.df$Gender, levels = c("F", "M"), 
+
+                       labels = c(0, 1))
+
+
+
+hr.df$Role <- factor(hr_old.df$Role, levels = c("Director","Level 1","Level 2-4","Manager","Senior Director","Senior Manager","VP"),
+
+                     labels = c(3,7,6,5,2,4,1))
+
+
+
+#Convert Factors into Numeric
+
+hr_old.df$salary = as.numeric(paste(hr.df$salary))
+
+hr_old.df$Gender = as.numeric(paste(hr.df$Gender))
+
+hr_old.df$Role = as.numeric(paste(hr.df$Role))
+
+
+
+#Dataset for Logistic Regression
+
+hr.logit <- hr.df[,5:30]
+
+
+
+set.seed(13)
+
+#Partitioning data into training (60%) and validation(40%) for logistic regression
+
+train.index <- createDataPartition(hr.logit$left_Company , p = 0.6, list = FALSE)
+
+train.df <-hr.logit[train.index,]
+
+valid.df <- hr.logit[-train.index,]
+
+
+
+#Logistic Regression for Leaving the company
+
+lc<- glm(left_Company ~ ., data = train.df, family = "binomial")
+
+options(scipen=999)
+
+summary(lc)
+
+
+
+#calculate e to the power coefficients
+
+exp(coef(lc))
+
+
+
+### Evaluate Performance of the Logit Model
+
+### Predict propensities
+
+
+
+pred <- predict(lc, valid.df[, -15], type = "response")
+
+
+
+#Gains 
+
+gain <- gains(valid.df$left_Company , pred, groups = 10)
+
+gain
+
+
+
+#Lift
+
+plot(c(0,gain$cume.pct.of.total*sum(pred))~c(0,gain$cume.obs), 
+
+     xlab = "# cases", ylab = "Cumulative", main = "", type = "l")
+
+     lines(c(0,sum(pred))~c(0, dim(valid.df)[1]), lty = 5)
+
+
+
+#decile chart and values
+
+heights <- gain$mean.resp/mean(valid.df$left_Company)
+
+midpoints <- barplot(heights, names.arg = gain$depth,  ylim = c(0,9), col = "blue",  
+
+                     xlab = "Percentile", ylab = "Decile lift", 
+
+                     main = "Decile-chart")
+
+text(midpoints, heights+0.5, labels=round(heights, 1), cex = 0.8)
+
+
+
+pred.scale <- ifelse( pred > 0.5, 1,0)
+
+
+
+#Confusion Matrix
+
+#confusionMatrix(data = pred.scale, reference = valid.df$left_Company)
+
+confusiontable <- table(Predicted = as.numeric(pred.scale) , Actual =as.numeric(valid.df$left_Company))
+
+confusiontable
+
+
+
+#Accuracy of Logistic Regression on predicting if the employee will leave the company
+
+mean(pred.scale==valid.df$left_Company)*100
+
+
+
+#### --------------------------linear discriminant Regression------------------------------
+
+
+
+lda1 <- lda(left_Company~., data = valid.df, family="binomial")
+
+
+
+# predict values
+
+predict1 = predict(lda1, newdata=valid.df[,-c(14)])
+
+names(predict1)
+
+
+
+# model Accuracy
+
+table(predict=predict1$class, actual=valid.df$left_Company)
+
+mean(predict1$class == valid.df$left_Company) 
+
+
+
+#gains lift and decile
+
+gain1 <- gains(valid.df$left_Company, predict1$posterior[,2], groups = 10)
+
+
+
+### Plot Lift Chart
+
+plot(c(0,gain1$cume.pct.of.total*sum(valid.df$left_Company))~c(0,gain1$cume.obs), 
+
+     xlab = "# cases", ylab = "Cumulative", main = "", type = "l")
+
+lines(c(0,sum(valid.df$left_Company))~c(0, dim(valid.df)[1]), lty = 5)
+
+
+
+### Plot decile-wise chart
+
+Decile <- gain1$mean.resp/mean(valid.df$left_Company)
+
+Decile1 <- barplot(Decile, names.arg = gain1$depth,  ylim = c(0,5), col = "red",  
+
+                   xlab = "%ile", ylab = "Decile lift", 
+
+                   main = "Decile Chart")
+
+
+
+####-------------------------------------Which emp will leave next?-----------------------------
+
+
+
+
+
+#Creating a data frame to structure the prediction output in a table
+
+predAboutToLeave <- data.frame(pred)
+
+
+
+#Add a column to the predAboutToLeave dataframe containing the performance
+
+predAboutToLeave$performance = valid.df$Trending.Perf
+
+predAboutToLeave
+
+
+
+#Find out which valuable employee has the most proability of leaving the company
+
+predAboutToLeave$Valuable_emp <- predAboutToLeave$performance * predAboutToLeave$pred
+
+
+
+#Sorting
+
+orderpred <- predAboutToLeave[order(predAboutToLeave$Valuable_emp,decreasing = TRUE),]
+
+
+
+#Displaying the top 20 records
+
+orderpred <- head(orderpred, n=20)
+
+orderpred
+
+
+
+#--------------------------------------------B) What is the likelihood of employees getting a promotion?-----------------------------------------------
+
+
+
+#Partitioning data into training (60%) and validation(40%) for linear regression on "Rising_Star"
+
+train.lm.rs.index <- createDataPartition(hrform.df$Rising_Star , p= 0.6, list = FALSE)
+
+train.linear.rs <-hrform.df[train.lm.rs.index,]
+
+valid.linear.rs <- hrform.df[-train.lm.rs.index,]
+
+
+
+# Linear Regression for Rising Star
+
+hr.rise <- lm(Rising_Star ~ ., data = train.linear.rs)
+
+summary(hr.rise)
+
+
+
+pred.linear.rs <- predict(hr.rise, valid.linear.rs)
+
+
+
+#Gains 
+
+gain.linear.rs <- gains(valid.linear.rs$Rising_Star , pred.linear.rs, groups = 10)
+
+gain.linear.rs
+
+
+
+#Lift
+
+plot(c(0,gain.linear.rs$cume.pct.of.total*sum(pred.linear.rs))~c(0,gain.linear.rs$cume.obs), 
+
+     xlab = "# cases", ylab = "Cumulative", main = "", type = "l")
+
+lines(c(0,sum(pred.linear.rs))~c(0, dim(valid.linear.rs)[1]), lty = 5)
+
+
+
+#decile chart and values
+
+heights <- gain.linear.rs$mean.resp/mean(valid.linear.rs$Rising_Star)
+
+midpoints <- barplot(heights, names.arg = gain.linear.rs$depth,  ylim = c(0,9), col = "blue",  
+
+                     xlab = "Percentile", ylab = "Decile lift", 
+
+                     main = "Decile-chart")
+
+text(midpoints, heights+0.5, labels=round(heights, 1), cex = 0.8)
+
+
+
+pred.linear.rs.round <- round(pred.linear.rs,0)
+
+
+
+#Confusion Matrix
+
+confusiontable.linear.rs <- table(Predicted = pred.linear.rs.round , Actual = valid.linear.rs$Rising_Star )
+
+confusiontable.linear.rs
+
+
+
+#Accuracy
+
+mean(pred.linear.rs.round==valid.linear.rs$Rising_Star)
+
+
+
+###----------------------------------------running KNN for the same question---------------------------------------------
+
+###KNN
+
+### Partitioning data
+
+set.seed(123456789)
+
+train.index <- sample(row.names(hr.logit), 0.6*dim(hr.logit)[1])  
+
+valid.index <- setdiff(row.names(hr.logit), train.index)  
+
+train.df <- hr.logit[train.index, ]
+
+valid.df <- hr.logit[valid.index, ]
+
+
+
+train.norm.df <- train.df
+
+valid.norm.df <- valid.df
+
+hr.norm.df <- hr.logit
+
+### Normalize data using preProcess() from CARET 
+
+norm.values <- preProcess(train.df[, c(1,3:26)], method=c("center", "scale"))
+
+train.norm.df[, c(1,3:26)] <- predict(norm.values, train.df[, c(1,3:26)])
+
+valid.norm.df[, c(1,3:26)] <- predict(norm.values, valid.df[, c(1,3:26)])
+
+### Run K-NN
+
+nn <- knn(train = train.norm.df[, c(1,3:26)], test = valid.norm.df[, c(1,3:26)], 
+
+          cl = train.norm.df[, 2], k = 5)
+
+### Nearest-neighbor Index
+
+row.names(train.df)[attr(nn, "nn.index")]
+
+### Showing the accuracy by using confusion matrix
+
+table(nn, valid.norm.df$Rising_Star)
+
+CrossTable(x=nn,y=valid.norm.df$Rising_Star,prop.chisq=F)
+
+
+
+
+
+
+
+#-------------------------------------------C)	How much time will the employee spend in company?------------------------------------------------
+
+
+
+#Linear Regression for time spend in company
+
+set.seed(123)
+
+#Partitioning data into training (60%) and validation(40%) for linear regression
+
+train.lm.ts.index <- createDataPartition(hrform.df$time_spend_company , p= 0.6, list = FALSE)
+
+train.linear.ts <-hrform.df[train.lm.ts.index,]
+
+valid.linear.ts <- hrform.df[-train.lm.ts.index,]
+
+
+
+hr_time.lm <- lm(time_spend_company ~ ., data = train.linear.ts )
+
+summary(hr_time.lm)
+
+
+
+pred.linear.ts <- predict(hr_time.lm, valid.linear.ts)
+
+
+
+#gains
+
+gain.linear.ts <- gains(valid.linear.ts$time_spend_company , pred.linear.ts, groups = 10)
+
+gain.linear.ts
+
+
+
+#Lift
+
+plot(c(0,gain.linear.ts$cume.pct.of.total*sum(pred.linear.ts))~c(0,gain.linear.ts$cume.obs), 
+
+     xlab = "# cases", ylab = "Cumulative", main = "", type = "l")
+
+lines(c(0,sum(pred.linear.ts))~c(0, dim(valid.linear.ts)[1]), lty = 5)
+
+
+
+#decile chart and values
+
+heights <- gain.linear.ts$mean.resp/mean(valid.linear.ts$time_spend_company)
+
+midpoints <- barplot(heights, names.arg = gain.linear.ts$depth,  ylim = c(0,9), col = "blue",  
+
+                     xlab = "Percentile", ylab = "Decile lift", 
+
+                     main = "Decile-chart")
+
+text(midpoints, heights+0.5, labels=round(heights, 1), cex = 0.8)
+
+
+
+pred.linear.ts.round <- round(pred.linear.ts,0)
+
+
+
+#Accuracy
+
+mean(pred.linear.ts.round==valid.linear.ts$time_spend_company)
+
+
+
+#---------------------------------------------D) How satisfied are the employees in company?----------------------------------------------
+
+#Linear Regression for Employee Satisfaction
+
+set.seed(123)
+
+#Partitioning data into training (60%) and validation(40%) for linear regression
+
+train.lm.es.index <- createDataPartition(hrform.df$EnvironmentSatisfaction , p= 0.6, list = FALSE)
+
+train.linear.es <-hrform.df[train.lm.es.index,]
+
+valid.linear.es <- hrform.df[-train.lm.es.index,]
+
+
+
+hr_emp_sat.lm <- lm(EnvironmentSatisfaction ~ ., data = train.linear.es )
+
+summary(hr_emp_sat.lm)
+
+
+
+pred.linear.es <- predict(hr_emp_sat.lm, valid.linear.es)
+
+
+
+#gains
+
+gain.linear.es <- gains(valid.linear.es$EnvironmentSatisfaction , pred.linear.es, groups = 10)
+
+gain.linear.es
+
+
+
+#Lift
+
+plot(c(0,gain.linear.es$cume.pct.of.total*sum(pred.linear.es))~c(0,gain.linear.es$cume.obs), 
+
+     xlab = "# cases", ylab = "Cumulative", main = "", type = "l")
+
+lines(c(0,sum(pred.linear.es))~c(0, dim(valid.linear.es)[1]), lty = 5)
+
+
+
+#decile chart and values
+
+heights <- gain.linear.es$mean.resp/mean(valid.linear.es$EnvironmentSatisfaction)
+
+midpoints <- barplot(heights, names.arg = gain.linear.es$depth,  ylim = c(0,9), col = "blue",  
+
+                     xlab = "Percentile", ylab = "Decile lift", 
+
+                     main = "Decile-chart")
+
+text(midpoints, heights+0.5, labels=round(heights, 1), cex = 0.8)
+
+
+
+pred.linear.es.round <- round(pred.linear.es,0)
+
+
+
+#Accuracy
+
+mean(pred.linear.es.round==valid.linear.es$EnvironmentSatisfaction)
+
+mean(hrform.df$EnvironmentSatisfaction)
+
+
+
+#--------------------------------E)	Running K-mean Clustering to find out which set of employees are more likely to exit-----------------------
+
+
+
+###kmeans clustering
+
+hr.logit <- hr.df[,5:30]
+
+hr.logit$Role <- factor(hr.logit$Role, levels = c("VP", "Senior Manager", "Senior Director", "Manager", "Level 2-4", "Level 1", "Director"), 
+
+                        labels = c(1:7))
+
+hr.logit$salary <- factor(hr.logit$salary, levels = c("low", "medium", "high"), 
+
+                          labels = c(1:3))
+
+hr.logit$Gender <- factor(hr.logit$Gender, levels = c("M", "F"), 
+
+                          labels = c(0,1))
+
+###Some variables are factors so we need to transfer them into numeric
+
+for (i in 1:26) {
+
+  hr.logit[,i] <- as.numeric(hr.logit[,i])
+
+}
+
+###Normalize the data
+
+hr.logit.norm <- sapply(hr.logit, scale)
+
+###Function to calculate the AIC
+
+kmeansAIC = function(km){
+
+  
+
+  m = ncol(km$centers)
+
+  n = length(km$cluster)
+
+  k = nrow(km$centers)
+
+  D = km$tot.withinss
+
+  return(D + 2*m*k)
+
+}
+
+###Finding the optimal k with lowest AIC
+
+set.seed(123)
+
+for (k in 1:30) {
+
+  km <- kmeans(hr.logit.norm, k)
+
+  print(k)
+
+  print(kmeansAIC(km))
+
+}
+
+###k-Means Clustering 
+
+km <- kmeans(hr.logit.norm, 20)
+
+### Cluster size
+
+km$size
+
+### Cluster centroids
+
+km$centers
